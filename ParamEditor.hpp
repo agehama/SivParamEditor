@@ -4,6 +4,10 @@
 
 #include <Siv3D.hpp> // OpenSiv3D v0.3.0
 
+#ifndef PMT_RELEASE_FLAG
+#define PMT_RELEASE_FLAG false
+#endif
+
 namespace pmt
 {
 	namespace detailImpl
@@ -608,21 +612,28 @@ namespace pmt
 					BinaryWriter writer(fileName);
 				}
 
-				const auto path = FileSystem::FullPath(directoryName);
-				std::array<char32_t, 256> filePath{};
-				for (auto ic : Indexed(path))
+				if (PMT_RELEASE_FLAG)
 				{
-					filePath[ic.first] = ic.second;
+					phase = Beginning;
 				}
-				directoryPath = path;
-				directoryWatcher = DirectoryWatcher(directoryPath);
+				else
+				{
+					const auto path = FileSystem::FullPath(directoryName);
+					std::array<char32_t, 256> filePath{};
+					for (auto ic : Indexed(path))
+					{
+						filePath[ic.first] = ic.second;
+					}
+					directoryPath = path;
+					directoryWatcher = DirectoryWatcher(directoryPath);
 
-				Serializer<MemoryWriter> serializer;
-				serializer(filePath);
-				const auto& writer = serializer.getWriter();
-				sendData = ByteArray(writer.data(), static_cast<size_t>(writer.size()));
+					Serializer<MemoryWriter> serializer;
+					serializer(filePath);
+					const auto& writer = serializer.getWriter();
+					sendData = ByteArray(writer.data(), static_cast<size_t>(writer.size()));
 
-				worker1 = std::thread(ReportNewColors);
+					worker1 = std::thread(ReportNewColors);
+				}
 			}
 
 			//新しく追加された色をサーバーに送る
@@ -776,7 +787,10 @@ namespace pmt
 			void terminateAllThreads()
 			{
 				terminationRequest = true;
-				worker1.join();
+				if (worker1.joinable())
+				{
+					worker1.join();
+				}
 			}
 
 			enum Phase { Beginning, Ready, WaitingServer, Running };
